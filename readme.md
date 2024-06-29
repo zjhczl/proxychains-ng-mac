@@ -1,56 +1,150 @@
-m1直接使用brew安装proxychains-ng会报错
+## Step 0) 
+Prerequisite - Remove/Uninstall/Delete Previous proxychains Files.
+This might not be necessary, but to prevent any possible issues, I did this.
+Delete any previously downloaded or installedproxychains/proxychains-ng files, especially if installed with brew or if you installed manually and ran make install.
+There might be a better way to do this, but I just ran a find command and deleted any file containing the roxychai substring:
+```
+find / -name "*roxychai*" 2>/dev/null
+/some/directory/proxychains.conf
+/some/other/directory/proxychains4
+sudo rm /some/directory/proxychains.conf
+sudo rm /some/other/directory/proxychains4
 
-解决过程：
+# 用这句删除所有proxychains相关的文件
+find / -name "*roxychai*" 2>/dev/null | xargs -I {} sudo rm {}
 
-github下载源码自己编译。
 
-禁用sip，百度...不写
+```
+## Step 1)
+# a) Download proxychains-ng with git and cd into the folder:
+```
+    git clone https://github.com/rofl0r/proxychains-ng 
+    
+    cd proxychains-ng
+```
+b) Set the CFLAGS to the following (different to above solution) and run ./configure (one-liner):
+```
+    CFLAGS="-arch arm64" LDFLAGS="-arch arm64" ./configure
+```
+c) Run 'make', but do NOT run 'install' or 'make install'. Just 'make':
+```
+    make
+```
+d) Rename the 'proxychains-ng' folder downloaded with the 'git' command in step a) (prevents issues in later step):
+```
+    cd ../
+    mv proxychains-ng proxychains-ng-temp
+```
+## Step 2)
+Perform pich4ya's solution to enable arm64e, as outlined below:
 
-下载proxychains-ng  https://github.com/rofl0r/proxychains-ng
+    a) Shutdown the device.
 
-解压　　tar -xvf proxychainsxxxxxx
+    b) Press and hold (long-press) the Power button to turn the device on and boot into Recovery mode.
+       Hold the power button until it says 'Loading Recovery Mode' (or something similar).
 
-重点来了 ，三次编译
+    c) Click on Settings/Options.
 
-第一次编译：
+    d) Click your user and enter password.
 
-cd proxychains-ng-4.16
-make clean
-CFLAGS="-arch arm64e" LDFLAGS="-arch arm64e" ./configure
+    e) Open a Terminal session with ⌘CMD+SHIFT+T.
+
+    f) Disable csrutil with below command. You will need to type 'y' and hit enter, as well as entering your password.
+       NOTE: This takes about a minute to execute, be patient.
+        csrutil disable
+
+    g) Reboot the device into normal mode (can use the same terminal session):
+        reboot
+
+    h) Once rebooted into normal mode and logged in, open a Terminal session and enable arm64e support:
+        sudo nvram boot-args=-arm64e_preview_abi
+
+    i) Once again, reboot into normal mode (can use terminal session):
+        sudo reboot
+## Step 3)
+Similar to Step 1), but with a twist on the CFLAGS
+
+1 Download proxychains-ng with git again (this is why we renamed the folder of the previous install) and cd into the folder:
+```
+git clone https://github.com/rofl0r/proxychains-ng 
+        
+cd proxychains-ng
+```
+
+2 Set the CFLAGS and run ./configure (as outlined in pich4ya's solution):
+
+```
+CFLAGS="-arch arm64e" LDFLAGS="-arch arm64e" ./configure --prefix=/usr/local --bindir=/usr/local/bin --libdir=/usr/local/lib --fat-binary-m1
+```
+3 Run 'make', but do NOT run 'install' or 'make install'. Just 'make':
+```
 make
+```
+## Step 4) THE FIX
+Remember in Step 1) how we installed proxychains-ng, renamed the folder to proxychains-ng-temp and left it?
+We basically need to replace the proxychains4 binary file we just compiled, with the binary we compiled earlier (in the proxychains-ng-temp folder).
 
-将libproxychains4.dylib复制到新建一个bak目录下
+1 Delete the newly-compiled proxychains4 file in the newly-downloaded `proxychains-ng` folder:
+```
+        ls -l | grep proxychains
+        proxychains-ng
+        proxychains-ng-test
+        
+        cd proxychains-ng
+        
+        rm proxychains4
+```
+2 Move the proxychains4 binary compiled earlier from the proxychains-ng-temp folder into the proxychains-ng folder:
+```
+        ls -l | grep proxychains
+        proxychains-ng
+        proxychains-ng-test
+        
+        mv proxychains-ng-test/proxychains4 proxychains-ng
+```
 
-mkdir bak
 
-cp libproxychains4.dylib ./bak
+IMPORTANT NOTES:
+This should now work. You can delete the old proxychains-ng-test folder.
+We disabled csrutil in an earlier step, which provides some critical system security.
+I can confirm that you CAN now re-enable it and have proxychains work without issues.
+Disabling csrutil is only required to run the command in Step 2) d), so we can re-enable it now.
+Re-enable steps:
 
-第二次编译：
+    # a) Shutdown the device.
 
-make clean 
+    # b) Press and hold (long-press) the Power button to turn the device on and boot into Recovery mode.
+    #    Hold the power button until it says 'Loading Recovery Mode' (or something similar).
 
-CFLAGS="-arch arm64e" LDFLAGS="-arch arm64e" ./configure
+    # c) Click on Settings/Options.
 
-make
+    # d) Click your user and enter password.
 
-将libproxychains4.dylib复制到bak目录下，覆盖
+    # e) Open a Terminal session with ⌘CMD+SHIFT+T.
 
-cp libproxychains4.dylib ./bak
+    # f) Enable csrutil with below command. You will need to type 'y' and hit enter, as well as entering your password.
+    #    NOTE: This takes about a minute to execute, be patient.
+        csrutil enable
 
-第三次编译：
+    # g) Reboot the device into normal mode (can use the same terminal session):
+        reboot
+You need to specify the proxychains.conf configuration file every time you run proxychains.
+We can specify this using the -f switch.
+The proxychains.conf file is stored in the src folder of the proxychains-ng folder downloaded with git:
+        pwd
+        /Users/sorryyyy/path-to-proxychains-folder/proxychains-ng
+        
+        ./proxychains -f src/proxychains.conf [COMMAND]
 
-make clean
-CFLAGS="-arch arm64" LDFLAGS="-arch arm64" ./configure
-sudo make install
+## Step 5) 安装proxychyains
 
-使用install.sh复制./bak/libproxychains4.dylib 到/usr/local/lib/目录
+```
+# 在proxychains-ng
+make install
+# 添加配置文件
+sudo vim /etc/proxychains.conf
 
-sudo ./tools/install.sh -D -m 644 bak/libproxychains4.dylib /usr/local/lib/libproxychains4.dylib
-
-配置文件在/etc/proxychains.conf
-
-sudo vi /etc/proxychains.conf
-
+```
 ```
 # proxychains.conf  VER 4.x
 #
